@@ -18,13 +18,14 @@ COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 
 WORKDIR /var/www/html
 
-RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache
-
-RUN chown -R unit:unit /var/www/html/storage bootstrap/cache && chmod -R 775 /var/www/html/storage
+RUN mkdir -p storage/logs bootstrap/cache \
+    && touch storage/logs/laravel.log \
+    && chown -R unit:unit storage bootstrap/cache \
+    && chmod -R ug+rwX storage bootstrap/cache
 
 COPY . .
 
-RUN chown -R unit:unit storage bootstrap/cache && chmod -R 775 storage bootstrap/cache
+RUN chown -R unit:unit /var/www/html
 
 RUN composer install --prefer-dist --optimize-autoloader --no-interaction
 
