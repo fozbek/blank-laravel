@@ -1,4 +1,4 @@
-FROM unit:1.34.1-php8.3 AS build
+FROM unit:1.34.1-php8.3
 
 RUN apt update && apt install -y \
     curl unzip git libicu-dev libzip-dev libpng-dev libjpeg-dev libfreetype6-dev libssl-dev libpq-dev \
@@ -7,37 +7,27 @@ RUN apt update && apt install -y \
     && pecl install redis \
     && docker-php-ext-enable redis
 
+RUN echo "opcache.enable=1" > /usr/local/etc/php/conf.d/custom.ini \
+    && echo "opcache.jit=tracing" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "opcache.jit_buffer_size=256M" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "memory_limit=512M" > /usr/local/etc/php/conf.d/custom.ini \
+    && echo "upload_max_filesize=64M" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "post_max_size=64M" >> /usr/local/etc/php/conf.d/custom.ini
+
 COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 
 WORKDIR /var/www/html
-
-COPY composer.json composer.lock ./
-
-RUN composer install --prefer-dist --no-scripts --no-autoloader --no-interaction
-
-COPY . .
-
-RUN composer dump-autoload --optimize && composer run-script post-autoload-dump || true
 
 RUN mkdir -p storage/logs bootstrap/cache \
     && touch storage/logs/laravel.log \
     && chown -R unit:unit storage bootstrap/cache \
     && chmod -R ug+rwX storage bootstrap/cache
 
-FROM unit:1.34.1-php8.3
+COPY . .
 
-WORKDIR /var/www/html
+RUN chown -R unit:unit /var/www/html
 
-COPY --from=build /var/www/html /var/www/html
-
-RUN chown -R unit:unit storage bootstrap/cache && chmod -R ug+rwX storage bootstrap/cache
-
-RUN echo "opcache.enable=1" > /usr/local/etc/php/conf.d/custom.ini \
-    && echo "opcache.jit=tracing" >> /usr/local/etc/php/conf.d/custom.ini \
-    && echo "opcache.jit_buffer_size=256M" >> /usr/local/etc/php/conf.d/custom.ini \
-    && echo "memory_limit=512M" >> /usr/local/etc/php/conf.d/custom.ini \
-    && echo "upload_max_filesize=64M" >> /usr/local/etc/php/conf.d/custom.ini \
-    && echo "post_max_size=64M" >> /usr/local/etc/php/conf.d/custom.ini
+RUN composer install --prefer-dist --optimize-autoloader --no-interaction
 
 COPY unit.json /docker-entrypoint.d/unit.json
 
